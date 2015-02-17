@@ -1,0 +1,229 @@
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:http="http://cxf.apache.org/transports/http/configuration"
+           xmlns:camelcxf="http://camel.apache.org/schema/blueprint/cxf"
+           xmlns:sec="http://cxf.apache.org/configuration/security"
+           xsi:schemaLocation="http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
+                               http://cxf.apache.org/configuration/security http://cxf.apache.org/schemas/configuration/security.xsd
+                               http://camel.apache.org/schema/blueprint http://camel.apache.org/schema/blueprint/camel-blueprint.xsd">
+
+   
+    <!-- *********************************************************************************************************************
+        ************************************************************************************** Camel Context Configuration -->
+    <camelContext xmlns="http://camel.apache.org/schema/blueprint" xmlns:eb="http://www.oasis-open.org/committees/ebxml-msg/schema/msg-header-2_0.xsd" 
+                  id="Provider.Spine.Asynchronous"
+                  errorHandlerRef="errorHandler">
+        <propertyPlaceholder id="properties" location="blueprint:urn.messagebus.provider.spine.asynchronous.config" />
+
+        <!-- Producer template to be used by processor to send multiple message -->
+        <template id="template" />
+
+        <route id="urn.messagebus.provider.spine.asynchronous"
+               autoStartup="true">
+
+            <from uri="{{provider.spine.async}}"/>
+            <transacted ref="required"/>
+
+            <bean beanType="urn.messagebus.library.camel.audit.Audit" method="inFlight(*)" id="audit-in"/>
+            <convertBodyTo type="java.lang.String"/>
+            <to uri="log:Spine ebXML Provider Received Request"/>
+            <to uri="{{spine.provider.setEbxmlHeaders}}" />
+            
+            <to uri="direct:storeSpineCorrelationData" id="storeSpineCorrelationData" />
+
+            <setProperty propertyName="requestType">
+                <header>type</header>
+            </setProperty>
+            <setProperty propertyName="siteId">
+                <header>siteId</header>
+            </setProperty>
+            <process ref="retryParamNormaliser" />
+            <doTry>
+                <choice>
+                    <when>
+                        <simple>${in.header.type} == 'nominatedReleaseRequest'</simple>
+                        <to uri="direct:removeHeaders" id="removeHeaders" />
+                        <inOnly uri="{{epsAsyncReliableEndpoint}}" id="epsEndpoint" />
+                    </when>
+                    <when>
+                        <simple>${in.header.type} == 'generalUpdateRequest'</simple>
+                        <to uri="direct:removeHeaders" id="removeHeaders" />
+                        <inOnly uri="{{pdsAsyncReliableEndpoint}}" />
+                    </when>
+                    <when>
+                        <simple>${in.header.type} == 'findPatient'</simple>
+                        <to uri="direct:removeHeaders" id="removeHeaders" />
+                        <inOnly uri="{{pdsAsyncUnreliableEndpoint}}" />
+                    </when>
+                </choice>
+                <doCatch>
+                    <exception>java.lang.Exception</exception>
+                    <handled>
+                        <constant>true</constant>
+                    </handled>
+                    <choice>
+                        <when>
+                            <method ref="retry" method="wantRetry"/>
+                            <bean beanType="urn.messagebus.library.camel.audit.Audit" method="flush(*)" id="audit-error"/>
+                            <log message="Retrying Sending Asynch request to spine"/>
+                            <inOnly uri="{{provider.spine.async.retry}}" id="retry"/>
+                        </when>
+                        <otherwise>
+                                <!-- abort and send to core error -->
+                                <log message="Exhausted all the retry attempts for given persist duration" />
+                                <doTry>
+                                    <throwException ref="missingDataException" />
+                                    <doCatch>
+                                       <exception>java.lang.Exception</exception>
+                                        <handled>
+                                            <constant>true</constant>
+                                        </handled>
+                                        <setHeader headerName="siteId">
+                                            <property>siteId</property>
+                                        </setHeader>
+                                        <to uri="{{core.error}}" />
+                                    </doCatch>
+                                </doTry>
+                        </otherwise>
+                    </choice>
+                </doCatch>
+                    
+            </doTry>
+        </route>
+
+        <route id="urn.messagebus.provider.spine.asynchronous.ebXMLHeaders">
+            <from uri="{{spine.provider.setEbxmlHeaders}}"/>
+            <setProperty propertyName="originalBody">
+                <simple>${body}</simple>
+            </setProperty>
+            <setBody>
+                <method beanType="urn.messagebus.library.spine.beans.EbXmlParser" method="getEnvelope" />
+            </setBody>
+            <setHeader headerName="service.spine">
+                <xpath resultType="java.lang.String">//eb:Service</xpath>
+            </setHeader>
+            <setHeader headerName="action">
+                <xpath resultType="java.lang.String">//eb:Action</xpath>
+            </setHeader>
+            <setHeader headerName="Soapaction">
+               <simple>${in.header.service.spine}/${in.header.action}</simple>
+            </setHeader>
+            <setHeader headerName="spineMessageId">
+                <xpath resultType="java.lang.String">//eb:MessageId</xpath>
+            </setHeader>
+            <setBody>
+                <property>originalBody</property>
+            </setBody>
+            <removeHeader headerName="service.spine"/>
+            <removeHeader headerName="action"/>
+            <removeProperty propertyName="originalBody" />
+        </route>
+        
+        <route id="urn.messagebus.provider.spine.asynchronous.retry" errorHandlerRef="sendErrorHandler">
+            <from uri="{{provider.spine.async.retry}}" />
+            <transacted ref="required"/>
+            <onException>
+                <exception>java.lang.Exception</exception>
+                <onWhen>
+                    <method ref="retry" method="wantRetry(*)" />
+                </onWhen>
+                <handled>
+                    <constant>true</constant>
+                </handled>
+                 <!--Set retry delay -->
+                <setHeader headerName="AMQ_SCHEDULED_DELAY">
+                    <property>nhsMHSRetryInterval</property>
+                </setHeader>
+                <bean beanType="urn.messagebus.library.spine.retry.Retry" method="incrementRedeliveryCounter" />
+                
+                <!-- Explicitly setting the error code for the error handler if this is going to be the last retry -->
+                <setProperty propertyName="MBErrorCode">
+                    <simple>{{connection.error.code}}</simple>
+                </setProperty>
+                
+                <to uri="{{provider.spine.async.retry}}" id="retry" />
+            </onException>
+            <removeHeaders pattern="AMQ_SCHEDULED_DELAY"/>
+            <choice>
+                <when>
+                    <simple>${property.requestType} == 'nominatedReleaseRequest'</simple>
+                    <to uri="direct:removeHeaders" id="removeHeaders" />
+                    <inOnly uri="{{epsAsyncReliableEndpoint}}" id="epsEndpoint"/>
+                </when>
+                <when>
+                    <simple>${property.requestType} == 'generalUpdateRequest'</simple>
+                    <to uri="direct:removeHeaders" id="removeHeaders" />
+                    <inOnly uri="{{pdsAsyncReliableEndpoint}}" />
+                </when>
+                <when>
+                    <simple>${property.requestType} == 'findPatient'</simple>
+                    <to uri="direct:removeHeaders" id="removeHeaders" />
+                    <inOnly uri="{{pdsAsyncUnreliableEndpoint}}" />
+                </when>
+            </choice>
+        </route>
+
+        <route id="urn.messagebus.provider.spine.asynchronous.storeSpineCorrelationData" autoStartup="true">
+            <from uri="direct:storeSpineCorrelationData" />
+
+            <to uri="log:Storing Spine ebXML correlation data"/>
+            <setHeader headerName="CamelHBaseOperation">
+                <constant>CamelHBasePut</constant>
+            </setHeader>
+            <setHeader headerName="CamelHBaseRowId">
+                <simple>${in.header.spineMessageId}</simple>
+            </setHeader>
+            <setHeader headerName="CamelHBaseFamily">
+                <constant>sc</constant>
+            </setHeader>
+            <setHeader headerName="CamelHBaseQualifier">
+                <constant>siteId</constant>
+            </setHeader>
+            <setHeader headerName="CamelHBaseValue">
+                <simple>${in.header.siteId}</simple>
+            </setHeader>
+            <to uri="{{spineCorrelationHBaseEndpoint}}" id="hbaseEndpoint"/>
+
+        </route>
+
+        <route id="urn.messagebus.provider.spine.asynchronous.removeHeaders" autoStartup="true">
+            <from uri="direct:removeHeaders" />
+            <removeHeader headerName="Message" />
+            <removeHeader headerName="Destination" />
+            <removeHeader headerName="ActiveMQBrokerInTime" />
+            <removeHeader headerName="cpaId" />
+            <removeHeader headerName="transactionId" />
+            <removeHeader headerName="spineReferenceId" />
+            <removeHeader headerName="conversationId" />
+            <removeHeader headerName="breadcrumbId" />
+            <removeHeader headerName="type" />
+            <removeHeader headerName="partyKeyTo" />
+            <removeHeader headerName="version" />
+            <removeHeader headerName="timestamp" />
+            <removeHeader headerName="spineService" />
+            <removeHeader headerName="siteId" />
+            <removeHeader headerName="service" />
+            <removeHeader headerName="action" />
+            <removeHeader headerName="partyKeyFrom" />
+            <removeHeaders pattern="Camel*" />
+        </route>
+    </camelContext>
+
+
+    <!-- *********************************************************************************************************************
+		 **********************************************************************************************  Spine Async Route Processors
+	-->
+    <bean id="routingSlipProcessor" class="urn.messagebus.library.camel.processors.RoutingSlipNextStepProcessor"/>
+    <bean id="loggingInInterceptor" class="org.apache.cxf.interceptor.LoggingInInterceptor"/>
+    <bean id="loggingOutInterceptor" class="org.apache.cxf.interceptor.LoggingOutInterceptor"/>
+    <bean id="setContentTypeInterceptor" class="urn.messagebus.provider.spine.asynchronous.interceptors.SetContentTypeInterceptor"/>
+    <bean id="retryParamNormaliser" class="urn.messagebus.library.spine.processor.RetryParametersNormaliser" />
+
+    <bean id="retry" class="urn.messagebus.library.spine.retry.Retry" />
+    <bean id="missingDataException"
+          class="urn.messagebus.library.commons.errors.MessageBusException">
+        <argument type="java.lang.String" value="03C-004"/>
+        <argument type="java.lang.String" value="Failed to send to spine"/>
+    </bean>
+
+</blueprint>

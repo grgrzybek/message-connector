@@ -1,0 +1,134 @@
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.1.0"
+           xsi:schemaLocation="http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
+                 http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.1.0 http://svn.apache.org/repos/asf/aries/trunk/blueprint/blueprint-cm/src/main/resources/org/apache/aries/blueprint/compendium/cm/blueprint-cm-1.1.0.xsd">
+
+    <!-- *********************************************************************************************************************
+        *********************************************************** OSGI blueprint property placeholder outside camel route -->
+
+    <cm:property-placeholder id="urn.messagebus.provider.spine.asynchronous.config"
+                             persistent-id="urn.messagebus.provider.spine.asynchronous.config">
+
+        <!-- Default configuration for this route -->
+        <cm:default-properties>
+
+            <!-- Default endpoint configuration -->
+            <cm:property name="provider.spine.async"
+                         value="direct-vm:urn.mb.provider.spine.async" />
+            
+            <cm:property name="provider.spine.async.retry" value="activemq:queue:urn.mb.provider.spine.async.retry" />
+            <cm:property name="spine.async.endpoint" value="direct:spine.async.endpoint" />
+
+            <cm:property name="epsAsyncReliableEndpoint"
+                         value="cxf:bean:epsAsyncReliableEndpoint?synchronous=false" />
+            <cm:property name="core.error" value="activemq:queue:urn.mb.core.error?transferExchange=true" />
+
+            <cm:property name="pdsAsyncReliableEndpoint"
+                         value="cxf:bean:pdsAsyncReliableEndpoint?synchronous=false" />
+
+            <cm:property name="pdsAsyncUnreliableEndpoint"
+                         value="cxf:bean:pdsAsyncUnreliableEndpoint?synchronous=false" />
+
+            <cm:property name="spine.async.disableCNCheck" value="true" />
+
+            <cm:property name="eps.async.reliable.url" value="https://localhost/reliablemessaging/reliablerequest" />
+
+            <cm:property name="pds.async.reliable.url" value="https://localhost/reliablemessaging/reliablerequest" />
+            <cm:property name="connection.error.code" value="03C-004" />
+
+            <cm:property name="spineCorrelationHBaseEndpoint"
+                         value="hbase:SpineCorrelation" />
+            <cm:property name="spine.provider.setEbxmlHeaders" value="direct:setEbxmlHeaders" />
+
+            <cm:property name="deadLetterUri" value="activemq:queue:urn.mb.core.error?transferExchange=true" />
+            <!-- Keystore details -->
+            <cm:property name="keystore.spine.crx.url" value="/opt/messagebus/inps-config/keystore/spine/FAA01" />
+
+            <cm:property name="keystore.spine.crx.pwd" value="changeit" />
+
+
+            <!-- Default redelivery policy configuration -->
+            <cm:property name="maximumRedeliveries"
+                         value="3" />
+
+            <cm:property name="redeliveryDelay"
+                         value="1000" />
+
+            <cm:property name="maximumRedeliveryDelay"
+                         value="60000" />
+
+            <cm:property name="asyncDelayedRedelivery"
+                         value="false" />
+
+            <cm:property name="useExponentialBackOff"
+                         value="false" />
+
+            <cm:property name="backOffMultiplier"
+                         value="2" />
+
+            <cm:property name="collisionAvoidanceFactor"
+                         value="0.15" />
+
+            <cm:property name="useCollisionAvoidance"
+                         value="false" />
+
+            <cm:property name="logRetryAttempted"
+                         value="true" />
+
+            <cm:property name="logRetryStackTrace"
+                         value="false" />
+
+            <cm:property name="logStackTrace"
+                         value="true" />
+
+            <cm:property name="logHandled"
+                         value="false" />
+
+            <cm:property name="logExhausted"
+                         value="true" />
+
+            <cm:property name="logExhaustedMessageHistory"
+                         value="true" />
+
+            <!-- Different retry policy when sending to ePharmacy -->
+            <cm:property name="send.maximumRedeliveries"
+                         value="0" />
+
+            <cm:property name="send.redeliveryDelay"
+                         value="6000" />
+
+            <cm:property name="send.maximumRedeliveryDelay"
+                         value="1860000" />
+
+            <cm:property name="send.asyncDelayedRedelivery"
+                         value="true" />
+
+            <cm:property name="send.useExponentialBackOff"
+                         value="true" />
+
+            <cm:property name="send.backOffMultiplier"
+                         value="2" />
+
+            <!-- switch to disable retry altogether -->
+            <cm:property name="disableRetry" value="false" />
+
+            <!-- ActiveMQ broker properties -->
+            <cm:property name="activemq.brokerURL" value="tcp://activemq:61616" />
+            <cm:property name="activemq.maxConnections" value="8" />
+
+            <!-- Hbase configuration -->
+            <cm:property name="hbaseZookeeperQuorum" value="hbase" />
+            <cm:property name="hbaseZookeeperPort" value="2181" />
+            <cm:property name="hbaseClusterDistributed" value="true" />
+            <cm:property name="hbaseVersionSkip" value="true" />
+            <cm:property name="hbaseSecurityAuthentication" value="simple" />
+            <cm:property name="hbaseSecurityAuthorization" value="true" />
+            <cm:property name="hadoopSecurityAuthentication" value="simple" />
+            <cm:property name="hbaseCoprocessorMasterClasses" value="org.apache.hadoop.hbase.security.access.AccessController" />
+            <cm:property name="hbaseCoprocessorRegionClasses" value="org.apache.hadoop.hbase.security.access.AccessController" />
+
+        </cm:default-properties>
+    </cm:property-placeholder>
+
+</blueprint>

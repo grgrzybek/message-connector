@@ -1,0 +1,88 @@
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="
+                 http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd">
+
+
+    <!-- *********************************************************************************************************************
+         **************************************************************************************** Error handler -->
+    <!-- Use the default error handler and propagate errors back to the core -->
+    <bean id="noErrorHandler" class="org.apache.camel.builder.NoErrorHandlerBuilder"/>
+
+    <bean id="errorHandler"
+          class="org.apache.camel.builder.DeadLetterChannelBuilder">
+
+        <property name="deadLetterUri" value="activemq:queue:urn.mb.core.error?transferExchange=true" />
+        <property name="useOriginalMessage" value="true" />
+
+    <!-- Re-delivery policy -->
+        <property name="redeliveryPolicy">
+            <bean class="org.apache.camel.processor.RedeliveryPolicy">
+                <property name="maximumRedeliveries"
+                          value="${maximumRedeliveries}" />
+
+                <property name="redeliveryDelay"
+                          value="${redeliveryDelay}" />
+
+                <property name="maximumRedeliveryDelay"
+                          value="${maximumRedeliveryDelay}" />
+
+                <property name="asyncDelayedRedelivery"
+                          value="${asyncDelayedRedelivery}" />
+
+                <property name="useExponentialBackOff"
+                          value="${useExponentialBackOff}" />
+
+                <property name="collisionAvoidanceFactor"
+                          value="${collisionAvoidanceFactor}" />
+
+                <property name="useCollisionAvoidance"
+                          value="${useCollisionAvoidance}" />
+
+                <property name="backOffMultiplier"
+                          value="${backOffMultiplier}" />
+
+                <property name="logRetryAttempted"
+                          value="${logRetryAttempted}" />
+
+                <property name="logRetryStackTrace"
+                          value="${logRetryStackTrace}" />
+
+                <property name="logStackTrace"
+                          value="${logStackTrace}" />
+
+                <property name="logHandled"
+                          value="${logHandled}" />
+
+                <property name="logExhausted"
+                          value="${logExhausted}" />
+
+                <property name="logExhaustedMessageHistory"
+                          value="${logExhaustedMessageHistory}" />
+            </bean>
+        </property>
+    </bean>
+
+    <bean id="sendErrorHandler"
+          class="org.apache.camel.builder.DeadLetterChannelBuilder">
+
+        <property name="deadLetterUri" value="${core.error}" />
+        <!--<property name="useOriginalMessage" value="true" />-->
+
+        <!-- Re-delivery policy -->
+        <property name="redeliveryPolicy">
+            <bean class="org.apache.camel.processor.RedeliveryPolicy">
+                <property name="maximumRedeliveries"
+                          value="${send.maximumRedeliveries}" />
+
+                <property name="redeliveryDelay"
+                          value="${send.redeliveryDelay}" />
+
+                <property name="maximumRedeliveryDelay"
+                          value="${send.maximumRedeliveryDelay}" />
+
+            </bean>
+        </property>
+    </bean>
+
+</blueprint>

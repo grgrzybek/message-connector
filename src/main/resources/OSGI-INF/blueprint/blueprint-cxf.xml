@@ -1,0 +1,100 @@
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:http="http://cxf.apache.org/transports/http/configuration"
+           xmlns:camelcxf="http://camel.apache.org/schema/blueprint/cxf"
+           xmlns:sec="http://cxf.apache.org/configuration/security"
+           xsi:schemaLocation="http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
+                               http://cxf.apache.org/configuration/security http://cxf.apache.org/schemas/configuration/security.xsd
+                               http://camel.apache.org/schema/blueprint http://camel.apache.org/schema/blueprint/camel-blueprint.xsd">
+
+    <camelcxf:cxfEndpoint id="epsAsyncReliableEndpoint"
+                          address="${eps.async.reliable.url}">
+
+        <camelcxf:properties>
+            <entry key="dataFormat" value="MESSAGE"/>
+        </camelcxf:properties>
+
+        <camelcxf:outInterceptors>
+            <ref component-id="loggingOutInterceptor"/>
+            <ref component-id="setContentTypeInterceptor"/>
+        </camelcxf:outInterceptors>
+        <camelcxf:inInterceptors>
+            <ref component-id="loggingInInterceptor"/>
+        </camelcxf:inInterceptors>
+        <camelcxf:outFaultInterceptors>
+            <ref component-id="loggingOutInterceptor"/>
+        </camelcxf:outFaultInterceptors>
+        <camelcxf:inFaultInterceptors>
+            <ref component-id="loggingInInterceptor"/>
+        </camelcxf:inFaultInterceptors>
+    </camelcxf:cxfEndpoint>
+
+    <camelcxf:cxfEndpoint id="pdsAsyncReliableEndpoint"
+                          address="${pds.async.reliable.url}">
+
+        <camelcxf:properties>
+            <entry key="dataFormat" value="MESSAGE"/>
+        </camelcxf:properties>
+
+        <camelcxf:outInterceptors>
+            <ref component-id="loggingOutInterceptor"/>
+            <ref component-id="setContentTypeInterceptor"/>
+        </camelcxf:outInterceptors>
+        <camelcxf:inInterceptors>
+            <ref component-id="loggingInInterceptor"/>
+        </camelcxf:inInterceptors>
+        <camelcxf:outFaultInterceptors>
+            <ref component-id="loggingOutInterceptor"/>
+        </camelcxf:outFaultInterceptors>
+        <camelcxf:inFaultInterceptors>
+            <ref component-id="loggingInInterceptor"/>
+        </camelcxf:inFaultInterceptors>
+    </camelcxf:cxfEndpoint>
+
+    <camelcxf:cxfEndpoint id="pdsAsyncUnreliableEndpoint"
+                          address="${pds.async.unreliable.url}">
+
+        <camelcxf:properties>
+            <entry key="dataFormat" value="MESSAGE"/>
+        </camelcxf:properties>
+
+        <camelcxf:outInterceptors>
+            <ref component-id="loggingOutInterceptor"/>
+            <ref component-id="setContentTypeInterceptor"/>
+        </camelcxf:outInterceptors>
+        <camelcxf:inInterceptors>
+            <ref component-id="loggingInInterceptor"/>
+        </camelcxf:inInterceptors>
+        <camelcxf:outFaultInterceptors>
+            <ref component-id="loggingOutInterceptor"/>
+        </camelcxf:outFaultInterceptors>
+        <camelcxf:inFaultInterceptors>
+            <ref component-id="loggingInInterceptor"/>
+        </camelcxf:inFaultInterceptors>
+    </camelcxf:cxfEndpoint>
+
+    <http:conduit name="*.http-conduit">
+        <http:tlsClientParameters disableCNCheck="${spine.async.disableCNCheck}">
+            <sec:keyManagers keyPassword="${keystore.spine.crx.pwd}">
+                <sec:keyStore type="JKS"
+                              password="${keystore.spine.crx.pwd}"
+                              file="${keystore.spine.crx.url}"/>
+            </sec:keyManagers>
+            <sec:trustManagers>
+                <sec:keyStore type="JKS"
+                              password="${keystore.spine.crx.pwd}"
+                              file="${keystore.spine.crx.url}"/>
+            </sec:trustManagers>
+            <sec:cipherSuitesFilter>
+                <sec:include>TLS_DHE_RSA_WITH_AES_128_CBC_SHA</sec:include>
+                <sec:include>SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA</sec:include>
+                <sec:include>TLS_RSA_WITH_AES_128_CBC_SHA</sec:include>
+                <sec:include>SSL_RSA_WITH_3DES_EDE_CBC_SHA</sec:include>
+                <sec:include>TLS_DHE_DSS_WITH_AES_128_CBC_SHA</sec:include>
+                <sec:include>SSL_DHE_DSS_WITH_3DES_EDE_CBC_SHA</sec:include>
+                <sec:exclude>.*_DH_anon_.*</sec:exclude>
+            </sec:cipherSuitesFilter>
+        </http:tlsClientParameters>
+    </http:conduit>
+
+</blueprint>
